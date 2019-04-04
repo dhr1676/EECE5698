@@ -1,18 +1,19 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 from time import time
-import sys,argparse
+import sys, argparse
 from pyspark import SparkContext
 from operator import add
 from pyspark.mllib.random import RandomRDDs
 
 
-def swap((x,y)):
+def swap((x, y)):
     """ Swap the elements of a pair tuple.
-    """ 
-    return (y,x)
-   
-def predict(u,v):
+    """
+    return (y, x)
+
+
+def predict(u, v):
     """ Given a user profile uprof and an item profile vprof, predict the rating given by the user to this item
 
         Inputs are:
@@ -24,7 +25,8 @@ def predict(u,v):
     """
     pass
 
-def pred_diff(r,u,v):
+
+def pred_diff(r, u, v):
     """ Given a rating, a user profile u and an item profile v, compute the difference between the prediction and actual rating
 
         Inputs are:
@@ -35,9 +37,10 @@ def pred_diff(r,u,v):
         The return value is the difference
           - δ =  <u,v> - r 
     """
-    pass    
+    pass
 
-def gradient_u(delta,u,v):
+
+def gradient_u(delta, u, v):
     """ Given a user profile u and an item profile v, and the difference in rating predictions δ, compute the gradient
 
               ∇_u l(u,v)   = 2 (<u,v> - r ) v 
@@ -57,8 +60,7 @@ def gradient_u(delta,u,v):
     pass
 
 
-
-def gradient_v(delta,u,v):
+def gradient_v(delta, u, v):
     """ Given a user profile u and an item profile v, and the difference in rating predictions δ, compute the gradient
 
               ∇_v l(u,v)= 2 (<u,v> - r) u 
@@ -77,7 +79,8 @@ def gradient_v(delta,u,v):
     """
     pass
 
-def readRatings(file,sparkContext):
+
+def readRatings(file, sparkContext):
     """ Read the ratings from a file and store them in an rdd containing tuples of the form:
                 (i,j,rij)
 
@@ -92,10 +95,11 @@ def readRatings(file,sparkContext):
 
         The return value is the constructed rdd
     """
-    return sparkContext.textFile(file).map(lambda x: tuple(x.split(','))).map(lambda (i,j,rij):(int(i),int(j),float(rij)))
+    return sparkContext.textFile(file).map(lambda x: tuple(x.split(','))).map(
+        lambda (i, j, rij): (int(i), int(j), float(rij)))
 
 
-def generateUserProfiles(R,d,seed,sparkContext,N):
+def generateUserProfiles(R, d, seed, sparkContext, N):
     """ Generate the user profiles from rdd R and store them in an RDD containing tuples of the form 
             (i,ui)
         where u is a random np.array of dimension d.
@@ -112,14 +116,15 @@ def generateUserProfiles(R,d,seed,sparkContext,N):
         The return value is an RDD containing the user profiles
     """
     # exctract user ids
-    U = R.map(lambda (i,j,rij):i).distinct(numPartitions = N)
+    U = R.map(lambda (i, j, rij): i).distinct(numPartitions=N)
     numUsers = U.count()
-    randRDD = RandomRDDs.normalVectorRDD(sparkContext, numUsers, d,numPartitions=N, seed=seed)
+    randRDD = RandomRDDs.normalVectorRDD(sparkContext, numUsers, d, numPartitions=N, seed=seed)
     U = U.zipWithIndex().map(swap)
     randRDD = randRDD.zipWithIndex().map(swap)
-    return U.join(randRDD,numPartitions = N).values()
+    return U.join(randRDD, numPartitions=N).values()
 
-def generateItemProfiles(R,d,seed,sparkContext,N):
+
+def generateItemProfiles(R, d, seed, sparkContext, N):
     """ Generate the item profiles from rdd R and store them in an RDD containing tuples of the form 
             (j,vj)
         where v is a random np.array of dimension d.
@@ -138,10 +143,7 @@ def generateItemProfiles(R,d,seed,sparkContext,N):
     pass
 
 
-    
-
-
-def joinAndPredictAll(R,U,V,N):
+def joinAndPredictAll(R, U, V, N):
     """ Receives as inputs the ratings R, the user profiles U, and the items V, and constructs a joined RDD.
 
         Inputs are:
@@ -162,7 +164,6 @@ def joinAndPredictAll(R,U,V,N):
     pass
 
 
-
 def SE(joinedRDD):
     """ Receives as input a joined RDD as well as a λ and a μ and computes the MSE:
 
@@ -174,8 +175,9 @@ def SE(joinedRDD):
         The output is the SE.
     """
     pass
- 
-def normSqRDD(profileRDD,param):
+
+
+def normSqRDD(profileRDD, param):
     """ Receives as input an RDD of profiles (e.g., U) as well as a parameter (e.g., λ) and computes the square of norms:
         λ Σ_i ||ui||_2^2         
 
@@ -189,7 +191,7 @@ def normSqRDD(profileRDD,param):
     pass
 
 
-def adaptU(joinedRDD,gamma,lam,N):
+def adaptU(joinedRDD, gamma, lam, N):
     """ Receives as input a joined RDD 
         as well as a gain γ, and regularization parameters λ and μ,  and constructs a new RDD of user profiles of the form 
  
@@ -208,11 +210,10 @@ def adaptU(joinedRDD,gamma,lam,N):
 
         The return value  is an RDD with tuples of the form (i,ui). The returned rdd contains exactly N partitions.
     """
-    pass   
+    pass
 
 
-
-def adaptV(joinedRDD,gamma,mu,N):
+def adaptV(joinedRDD, gamma, mu, N):
     """ Receives as input a joined RDD 
         as well as a gain γ, and regularization parameters λ and μ,  and constructs a new RDD of user profiles of the form 
  
@@ -231,121 +232,114 @@ def adaptV(joinedRDD,gamma,mu,N):
 
         The return value  is an RDD with tuples of the form (j,vj). The returned rdd contains exactly N partitions.
     """
-    
+
     pass
 
 
-if __name__=="__main__":
-        
+if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser(description = 'Parallele Matrix Factorization.',formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('data',help = 'Directory containing folds. The folds should be named fold0, fold1, ..., foldK.')
-    parser.add_argument('folds',type = int,help = 'Number of folds')
-    parser.add_argument('--gain',default=0.001,type=float,help ="Gain")
-    parser.add_argument('--power',default=0.2,type=float,help ="Gain Exponent")
-    parser.add_argument('--epsilon',default=1.e-99,type=float,help ="Desired objective accuracy")
-    parser.add_argument('--lam',default=1.0,type=float,help ="Regularization parameter for user features")
-    parser.add_argument('--mu',default=1.0,type=float,help ="Regularization parameter for item features")
-    parser.add_argument('--d',default=10,type=int,help ="Number of latent features")
-    parser.add_argument('--outputfile',help = 'Output file')
-    parser.add_argument('--maxiter',default=20,type=int, help='Maximum number of iterations')
-    parser.add_argument('--N',default=40,type=int, help='Parallelization Level')
-    parser.add_argument('--seed',default=1234567,type=int, help='Seed used in random number generator')
-    parser.add_argument('--output',default=None, help='If not None, cross validation is skipped, and U,V are trained over entire dataset and store it in files output_U and output_V')
+    parser = argparse.ArgumentParser(description='Parallele Matrix Factorization.',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('data', help='Directory containing folds. The folds should be named fold0, fold1, ..., foldK.')
+    parser.add_argument('folds', type=int, help='Number of folds')
+    parser.add_argument('--gain', default=0.001, type=float, help="Gain")
+    parser.add_argument('--power', default=0.2, type=float, help="Gain Exponent")
+    parser.add_argument('--epsilon', default=1.e-99, type=float, help="Desired objective accuracy")
+    parser.add_argument('--lam', default=1.0, type=float, help="Regularization parameter for user features")
+    parser.add_argument('--mu', default=1.0, type=float, help="Regularization parameter for item features")
+    parser.add_argument('--d', default=10, type=int, help="Number of latent features")
+    parser.add_argument('--outputfile', help='Output file')
+    parser.add_argument('--maxiter', default=20, type=int, help='Maximum number of iterations')
+    parser.add_argument('--N', default=40, type=int, help='Parallelization Level')
+    parser.add_argument('--seed', default=1234567, type=int, help='Seed used in random number generator')
+    parser.add_argument('--output', default=None,
+                        help='If not None, cross validation is skipped, and U,V are trained over entire dataset and store it in files output_U and output_V')
 
     verbosity_group = parser.add_mutually_exclusive_group(required=False)
     verbosity_group.add_argument('--verbose', dest='verbose', action='store_true')
     verbosity_group.add_argument('--silent', dest='verbose', action='store_false')
     parser.set_defaults(verbose=False)
 
- 
     args = parser.parse_args()
 
     sc = SparkContext(appName='Parallel MF')
-    
-    if not args.verbose :
-        sc.setLogLevel("ERROR")        
 
-       
+    if not args.verbose:
+        sc.setLogLevel("ERROR")
 
     folds = {}
 
     if args.output is None:
         for k in range(args.folds):
-            folds[k] = readRatings(args.data+"/fold"+str(k),sc)
+            folds[k] = readRatings(args.data + "/fold" + str(k), sc)
     else:
-        folds[0] = readRatings(args.data,sc)
+        folds[0] = readRatings(args.data, sc)
 
-      
-
- 
     cross_val_rmses = []
     for k in folds:
-        train_folds = [folds[j] for j in folds if j is not k ]
+        train_folds = [folds[j] for j in folds if j is not k]
 
-        if len(train_folds)>0:
+        if len(train_folds) > 0:
             train = train_folds[0]
-            for fold in  train_folds[1:]:
-                train=train.union(fold)
+            for fold in train_folds[1:]:
+                train = train.union(fold)
             train.repartition(args.N).cache()
             test = folds[k].repartition(args.N).cache()
-            Mtrain=train.count()
-            Mtest=test.count()
-              
-            print("Initiating fold %d with %d train samples and %d test samples" % (k,Mtrain,Mtest) )
+            Mtrain = train.count()
+            Mtest = test.count()
+
+            print("Initiating fold %d with %d train samples and %d test samples" % (k, Mtrain, Mtest))
         else:
             train = folds[k].repartition(args.N).cache()
             test = train
-            Mtrain=train.count()
-            Mtest=test.count()
-            print("Running single training over training set with %d train samples. Test RMSE computes RMSE on training set" % Mtrain )
-            
-      
+            Mtrain = train.count()
+            Mtest = test.count()
+            print(
+                        "Running single training over training set with %d train samples. Test RMSE computes RMSE on training set" % Mtrain)
 
         i = 0
         change = 1.e99
         obj = 1.e99
-    
 
-        #Generate user profiles
-        U = generateUserProfiles(train,args.d,args.seed,sc,args.N).cache()
-        V = generateItemProfiles(train,args.d,args.seed,sc,args.N).cache()
+        # Generate user profiles
+        U = generateUserProfiles(train, args.d, args.seed, sc, args.N).cache()
+        V = generateItemProfiles(train, args.d, args.seed, sc, args.N).cache()
 
-        print "Training set contains %d users and %d items" %(U.count(),V.count())
-        
+        print "Training set contains %d users and %d items" % (U.count(), V.count())
+
         start = time()
         gamma = args.gain
 
-        while i<args.maxiter and change > args.epsilon:
+        while i < args.maxiter and change > args.epsilon:
             i += 1
 
-            joinedRDD = joinAndPredictAll(train,U,V,args.N).cache()
-        
+            joinedRDD = joinAndPredictAll(train, U, V, args.N).cache()
+
             oldObjective = obj
-            obj = SE(joinedRDD) + normSqRDD(U,args.lam) + normSqRDD(V,args.lam)         
-            change = np.abs(obj-oldObjective) 
+            obj = SE(joinedRDD) + normSqRDD(U, args.lam) + normSqRDD(V, args.lam)
+            change = np.abs(obj - oldObjective)
 
-            testRMSE = np.sqrt(1.*SE(joinAndPredictAll(test,U,V,args.N))/Mtest)
+            testRMSE = np.sqrt(1. * SE(joinAndPredictAll(test, U, V, args.N)) / Mtest)
 
-            gamma = args.gain / i**args.power
+            gamma = args.gain / i ** args.power
             U.unpersist()
             V.unpersist()
-            U = adaptU(joinedRDD,gamma,args.lam,args.N).cache()
-            V = adaptV(joinedRDD,gamma,args.mu,args.N).cache()
+            U = adaptU(joinedRDD, gamma, args.lam, args.N).cache()
+            V = adaptV(joinedRDD, gamma, args.mu, args.N).cache()
 
-            now = time()-start
-            print "Iteration: %d\tTime: %f\tObjective: %f\tTestRMSE: %f" % (i,now,obj,testRMSE)
+            now = time() - start
+            print "Iteration: %d\tTime: %f\tObjective: %f\tTestRMSE: %f" % (i, now, obj, testRMSE)
 
             joinedRDD.unpersist()
-            
+
         cross_val_rmses.append(testRMSE)
 
         train.unpersist()
         test.unpersist()
 
     if args.output is None:
-       print "%d-fold cross validation error is: %f " % (args.folds, np.mean(cross_val_rmses))
+        print "%d-fold cross validation error is: %f " % (args.folds, np.mean(cross_val_rmses))
     else:
-       print "Saving U and V RDDs"
-       U.saveAsTextFile(args.output+'_U')
-       V.saveAsTextFile(args.output+'_V')
+        print "Saving U and V RDDs"
+        U.saveAsTextFile(args.output + '_U')
+        V.saveAsTextFile(args.output + '_V')
