@@ -23,7 +23,8 @@ def predict(u, v):
         The return value is
            - the inner product <u,v>
     """
-    pass
+    prediction = u.dot(v)
+    return prediction
 
 
 def pred_diff(r, u, v):
@@ -37,7 +38,8 @@ def pred_diff(r, u, v):
         The return value is the difference
           - δ =  <u,v> - r 
     """
-    pass
+    error = predict(u, v) - r
+    return error
 
 
 def gradient_u(delta, u, v):
@@ -57,7 +59,8 @@ def gradient_u(delta, u, v):
         The return value is 
           - The gradient w.r.t. u
     """
-    pass
+    gradient = 2 * delta * v
+    return gradient
 
 
 def gradient_v(delta, u, v):
@@ -77,7 +80,8 @@ def gradient_v(delta, u, v):
         The return value is 
           - the gradient w.r.t. v  
     """
-    pass
+    gradient = 2 * delta * u
+    return gradient
 
 
 def readRatings(file, sparkContext):
@@ -95,8 +99,9 @@ def readRatings(file, sparkContext):
 
         The return value is the constructed rdd
     """
-    return sparkContext.textFile(file).map(lambda x: tuple(x.split(','))).map(
-        lambda (i, j, rij): (int(i), int(j), float(rij)))
+    return sparkContext.textFile(file) \
+        .map(lambda x: tuple(x.split(','))) \
+        .map(lambda (i, j, rij): (int(i), int(j), float(rij)))
 
 
 def generateUserProfiles(R, d, seed, sparkContext, N):
@@ -140,7 +145,12 @@ def generateItemProfiles(R, d, seed, sparkContext, N):
 
         The return value is an RDD containing the item profiles
     """
-    pass
+    V = R.map(lambda (i, j, rij): i).distinct(numPartitions=N)
+    numItems = V.count()
+    randRDD = RandomRDDs.normalVectorRDD(sparkContext, numItems, d, numPartitions=N, seed=seed)
+    V = V.zipWithIndex().map(swap)
+    randRDD = randRDD.zipWithIndex().map(swap)
+    return V.join(randRDD, numPartitions=N).values()
 
 
 def joinAndPredictAll(R, U, V, N):
@@ -295,7 +305,7 @@ if __name__ == "__main__":
             Mtrain = train.count()
             Mtest = test.count()
             print(
-                        "Running single training over training set with %d train samples. Test RMSE computes RMSE on training set" % Mtrain)
+                    "Running single training over training set with %d train samples. Test RMSE computes RMSE on training set" % Mtrain)
 
         i = 0
         change = 1.e99
