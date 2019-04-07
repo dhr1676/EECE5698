@@ -14,12 +14,11 @@ def swap((x, y)):
 
 
 def predict(u, v):
-    """ Given a user profile uprof and an item profile vprof, predict the rating given by the user to this item
-
+    """ Given a user profile uprof and an item profile vprof,
+    predict the rating given by the user to this item
         Inputs are:
            -u: user profile, in the form of a numpy array
            -v: item profile, in the form of a numpy array
-
         The return value is
            - the inner product <u,v>
     """
@@ -28,13 +27,12 @@ def predict(u, v):
 
 
 def pred_diff(r, u, v):
-    """ Given a rating, a user profile u and an item profile v, compute the difference between the prediction and actual rating
-
+    """ Given a rating, a user profile u and an item profile v,
+    compute the difference between the prediction and actual rating
         Inputs are:
            -r: the rating a user gave to an item
            -u: user profile, in the form of a numpy array
            -v: item profile, in the form of a numpy array
-
         The return value is the difference
           - δ =  <u,v> - r 
     """
@@ -43,20 +41,16 @@ def pred_diff(r, u, v):
 
 
 def gradient_u(delta, u, v):
-    """ Given a user profile u and an item profile v, and the difference in rating predictions δ, compute the gradient
-
-              ∇_u l(u,v)   = 2 (<u,v> - r ) v 
-
+    """ Given a user profile u and an item profile v,
+    and the difference in rating predictions δ, compute the gradient
+              ∇_u l(u,v)   = 2 (<u,v> - r ) v
              of the square error loss:
-         
               l(u,v) = (<u,v> - r)^2
-
         Inputs are:
            -δ: the difference  <u,v> - r 
            -u: user profile, in the form of a numpy array
            -v: item profile, in the form of a numpy array
-
-        The return value is 
+        The return value is
           - The gradient w.r.t. u
     """
     gradient = 2 * delta * v
@@ -64,20 +58,16 @@ def gradient_u(delta, u, v):
 
 
 def gradient_v(delta, u, v):
-    """ Given a user profile u and an item profile v, and the difference in rating predictions δ, compute the gradient
-
-              ∇_v l(u,v)= 2 (<u,v> - r) u 
-
+    """ Given a user profile u and an item profile v,
+    and the difference in rating predictions δ, compute the gradient
+              ∇_v l(u,v)= 2 (<u,v> - r) u
         of the square error loss:
-
               l(u,v) = (<u,v> - r)^2
-
         Inputs are:
            -δ: the difference  <u,v> - r 
            -u: user profile, in the form of a numpy array
            -v: item profile, in the form of a numpy array
-
-        The return value is 
+        The return value is
           - the gradient w.r.t. v  
     """
     gradient = 2 * delta * u
@@ -133,19 +123,17 @@ def generateItemProfiles(R, d, seed, sparkContext, N):
     """ Generate the item profiles from rdd R and store them in an RDD containing tuples of the form 
             (j,vj)
         where v is a random np.array of dimension d.
-
         The random uis are generated using normalVectorRDD(), a function in RandomRDDs.
-        
         Inputs are:
              - R: an RDD that contains the ratings in (user, item, rating) form
              - d: the dimension of the user profiles
              - seed: a seed to be used for in generating the random vectors
              - sparkContext: a spark context
              - N: the number of partitions to be used during joins, etc.
-
         The return value is an RDD containing the item profiles
     """
-    V = R.map(lambda (i, j, rij): i).distinct(numPartitions=N)
+    # extract item ids
+    V = R.map(lambda (i, j, rij): j).distinct(numPartitions=N)
     numItems = V.count()
     randRDD = RandomRDDs.normalVectorRDD(sparkContext, numItems, d, numPartitions=N, seed=seed)
     V = V.zipWithIndex().map(swap)
@@ -154,96 +142,105 @@ def generateItemProfiles(R, d, seed, sparkContext, N):
 
 
 def joinAndPredictAll(R, U, V, N):
-    """ Receives as inputs the ratings R, the user profiles U, and the items V, and constructs a joined RDD.
-
+    """ Receives as inputs the ratings R, the user profiles U,
+        and the items V, and constructs a joined RDD.
         Inputs are:
          - R: an RDD containing tuples of the form (i,j,rij)
          - U: an RDD containing tuples of the form (i,ui)
          - V: an RDD containing tuples of the form (j,vj)
          - N: the number of partitions to be used during joins, etc.
-
         The output is a joined RDD containing tuples of the form:
-
         (i,j,δij,ui,vj)
-
-        where 
+        where
           δij = <u,v>-rij
         is the prediction difference.
-
     """
-    pass
+    # Using join must keep the two rdd in such form: (key, value)
+    # where key and value can be tuple
+    uv = U.cartesian(V).map(lambda ((i, ui), (j, vj)): ((i, j), (ui, vj)))
+    ruv = R.map(lambda (i, j, rij): ((i, j), rij)) \
+        .join(uv, numPartitions=N) \
+        .map(lambda ((i, j), (rij, (ui, vj))):
+             (i, j, pred_diff(rij, ui, vj), ui, vj)) \
+        .repartition(N)
+    return ruv
 
 
 def SE(joinedRDD):
-    """ Receives as input a joined RDD as well as a λ and a μ and computes the MSE:
-
-        SE(R,U,V) = Σ_{i,j in data} (<ui,vj>-rij)^2 
-
+    """ Receives as input a joined RDD as well as
+        a λ and a μ and computes the MSE:
+        SE(R,U,V) = Σ_{i,j in data} (<ui,vj>-rij)^2
         The input is
-         -joinedRDD: an RDD with tuples of the form (i,j,δij,ui,vj), where δij = <ui,vj> - rij is the prediction difference.
-
+         -joinedRDD: an RDD with tuples of the form (i,j,δij,ui,vj),
+         where δij = <ui,vj> - rij is the prediction difference.
         The output is the SE.
     """
-    pass
+    sum_of_error = joinedRDD \
+        .map(lambda (i, j, delta, ui, vj): (delta * delta)) \
+        .reduce(add)
+    return sum_of_error
 
 
 def normSqRDD(profileRDD, param):
-    """ Receives as input an RDD of profiles (e.g., U) as well as a parameter (e.g., λ) and computes the square of norms:
-        λ Σ_i ||ui||_2^2         
-
+    """ Receives as input an RDD of profiles (e.g., U) as well as
+        a parameter (e.g., λ) and computes the square of norms:
         The input is:
-          -profileRDD: an RDD of the form (i,u), where i is an index and u is a numpy array
+          -profileRDD: an RDD of the form (i,u),
+                    where i is an index and u is a numpy array
           -param: a scalar λ>0
-
         The return value is:
         λ Σ_i ||ui||_2^2         
     """
-    pass
+    second_norm = profileRDD \
+        .map(lambda (i, u): u.dot(u)) \
+        .reduce(add)
+    return param * second_norm
 
 
 def adaptU(joinedRDD, gamma, lam, N):
     """ Receives as input a joined RDD 
-        as well as a gain γ, and regularization parameters λ and μ,  and constructs a new RDD of user profiles of the form 
- 
+        as well as a gain γ, and regularization parameters λ and μ,
+        and constructs a new RDD of user profiles of the form
         ui = ui - γ  ∇_ui RegSE(R,U,V)
-
-        where 
-
-        RegSE(R,U,V) = Σ_{i,j in R} (<ui,vj>-rij)^2 + λ Σ_i ||ui||_2^2 + μ Σ_j ||vj||_2^2                
-                
-
+        where
+        RegSE(R,U,V) = Σ_{i,j in R} (<ui,vj>-rij)^2 + λ Σ_i ||ui||_2^2 + μ Σ_j ||vj||_2^2
         Inputs are
          -joinedRDD: an RDD with tuples of the form (i,j,δij,ui,vj), where δij = <ui,vj> - rij
          -gamma: the gain γ
          -lam: the regularization parameter λ
          -N: the number of partitions to be used in reduceByKey operations
-
-        The return value  is an RDD with tuples of the form (i,ui). The returned rdd contains exactly N partitions.
+        The return value  is an RDD with tuples of the form (i,ui).
+        The returned rdd contains exactly N partitions.
     """
-    pass
+    new_rdd = joinedRDD \
+        .map(lambda (i, j, delta, ui, vj): ((i, tuple(ui)), gradient_u(delta, ui, vj))) \
+        .reduceByKey(add, numPartitions=N) \
+        .map(lambda ((i, ui), grad):
+             (i, np.array(ui) - gamma * (grad + 2 * lam * np.array(ui))))
+    return new_rdd
 
 
 def adaptV(joinedRDD, gamma, mu, N):
     """ Receives as input a joined RDD 
-        as well as a gain γ, and regularization parameters λ and μ,  and constructs a new RDD of user profiles of the form 
- 
+        as well as a gain γ, and regularization parameters λ and μ,
+        and constructs a new RDD of user profiles of the form
         ui = ui - γ  ∇_ui RegSE(R,U,V)
-
-        where 
-
-        RegSE(R,U,V) = Σ_{i,j in R} (<ui,vj>-rij)^2 + λ Σ_i ||ui||_2^2 + μ Σ_j ||vj||_2^2                
-                
-
+        where
+        RegSE(R,U,V) = Σ_{i,j in R} (<ui,vj>-rij)^2 + λ Σ_i ||ui||_2^2 + μ Σ_j ||vj||_2^2
         Inputs are
          -joinedRDD: an RDD with tuples of the form (i,j,δij,ui,vj), where δij = <ui,vj> - rij
          -gamma: the gain γ
          -mu: the regularization parameter μ
          -N: the number of partitions to be used in reduceByKey operations
-
-        The return value  is an RDD with tuples of the form (j,vj). The returned rdd contains exactly N partitions.
+        The return value  is an RDD with tuples of the form (j,vj).
+        The returned rdd contains exactly N partitions.
     """
-
-    pass
+    new_rdd = joinedRDD \
+        .map(lambda (i, j, delta, ui, vj): ((j, tuple(vj)), gradient_v(delta, ui, vj))) \
+        .reduceByKey(add, numPartitions=N) \
+        .map(lambda ((j, vj), grad):
+             (j, np.array(vj) - gamma * (grad + 2 * mu * np.array(vj))))
+    return new_rdd
 
 
 if __name__ == "__main__":
@@ -338,7 +335,7 @@ if __name__ == "__main__":
             V = adaptV(joinedRDD, gamma, args.mu, args.N).cache()
 
             now = time() - start
-            print "Iteration: %d\tTime: %f\tObjective: %f\tTestRMSE: %f" % (i, now, obj, testRMSE)
+            print "Iteration: %02d\tTime: %.2f\tObjective: %.4f\tTestRMSE: %.4f" % (i, now, obj, testRMSE)
 
             joinedRDD.unpersist()
 
@@ -353,3 +350,6 @@ if __name__ == "__main__":
         print "Saving U and V RDDs"
         U.saveAsTextFile(args.output + '_U')
         V.saveAsTextFile(args.output + '_V')
+
+# spark-submit --master local[40] --executor-memory 100G --driver-memory 100G MFspark.py small_data 5 --N 40 --gain 0.001 --pow 0.2 --maxiter 20 --d 1
+# spark-submit --master local[40] --executor-memory 100G --driver-memory 100G MFspark.py small_data 5 --N 40 --gain 0.001 --pow 0.2 --maxiter 20 --d 1
