@@ -352,4 +352,3 @@ if __name__ == "__main__":
         V.saveAsTextFile(args.output + '_V')
 
 # spark-submit --master local[40] --executor-memory 100G --driver-memory 100G MFspark.py small_data 5 --N 40 --gain 0.001 --pow 0.2 --maxiter 20 --d 1
-# spark-submit --master local[40] --executor-memory 100G --driver-memory 100G MFspark.py small_data 5 --N 40 --gain 0.001 --pow 0.2 --maxiter 20 --d 1
