@@ -301,8 +301,8 @@ if __name__ == "__main__":
             test = train
             Mtrain = train.count()
             Mtest = test.count()
-            print(
-                    "Running single training over training set with %d train samples. Test RMSE computes RMSE on training set" % Mtrain)
+            print "Running single training over training set with %d train samples. " \
+                  "Test RMSE computes RMSE on training set" % Mtrain
 
         i = 0
         change = 1.e99
