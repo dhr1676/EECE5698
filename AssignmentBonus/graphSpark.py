@@ -5,7 +5,6 @@ import argparse
 from pyspark import SparkContext
 from operator import add
 import numpy as np
-from pyspark.mllib.random import RandomRDDs
 
 
 def read_data(file_path, sparkContext):

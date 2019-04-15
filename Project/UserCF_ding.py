@@ -162,7 +162,7 @@ class UserCF:
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='UserCF',
+    parser = argparse.ArgumentParser(description='UserCF Standalone',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--n_sim_movie')
     parser.add_argument('--n_rec_movie')
