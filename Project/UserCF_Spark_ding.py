@@ -22,7 +22,7 @@ def read_data(file_path, sparkContext):
     data_rdd = sparkContext.textFile(file_path, use_unicode=False) \
         .map(lambda line: line.strip()) \
         .map(lambda line: line.split(",")) \
-        .map(lambda line: (int(line[0]), int(line[1]), float(line[2])))
+        .map(lambda line: (int(line[0]), int(line[1])))
 
     (train_rdd, test_rdd) = data_rdd.randomSplit(weights=[0.75, 0.25], seed=0)
     return train_rdd, test_rdd
@@ -31,15 +31,15 @@ def read_data(file_path, sparkContext):
 def calc_user_sim(train_rdd):
     # 建立电影-用户倒排表
     movie2users = train_rdd \
-        .map(lambda (user, movie, rating): (movie, user)) \
+        .map(lambda (user, movie): (movie, user)) \
         .groupByKey(numPartitions=40) \
         .map(lambda (movie, user_list): (movie, [u for u in user_list]))
 
-    # # 记录一下popularity
-    # movie_popular = movie2users \
-    #     .map(lambda (movie, user_list): (movie, len(user_list)))
-    #
-    # train_movie_count = movie2users.count()
+    # 记录一下popularity
+    movie_popular = movie2users \
+        .map(lambda (movie, user_list): (movie, len(user_list)))
+
+    train_movie_count = movie2users.count()
 
     # C[u][v]
     user_co_related_matrix = movie2users \
@@ -50,7 +50,7 @@ def calc_user_sim(train_rdd):
 
     # N[u]
     view_num_map = train_rdd \
-        .map(lambda (user, movie, rating): (user, 1)) \
+        .map(lambda (user, movie): (user, 1)) \
         .reduceByKey(add, numPartitions=40) \
         .collectAsMap()
 
@@ -103,18 +103,18 @@ def evaluate(train_rdd, test_rdd, user_sim_matrix_rdd):
     popular_sum = 0
 
     test_user_movie = test_rdd \
-        .map(lambda (user, movie, rating): (user, movie)) \
         .groupByKey(numPartitions=40) \
         .map(lambda (user, movie_list): (user, set([m for m in movie_list])))
 
     test_u_m_map = test_user_movie.collectAsMap()
 
     user_sim_matrix_map = user_sim_matrix_rdd \
-        .map(lambda ((u, v), score): (u, {v: score})) \
+        .map(lambda ((u, v), score): (u, (v, score))) \
+        .groupByKey(numPartitions=40) \
+        .map(lambda (u, v_set_list): (u, {v_set[0]: v_set[1] for v_set in v_set_list})) \
         .collectAsMap()
 
     train_user_movie = train_rdd \
-        .map(lambda (user, movie, rating): (user, movie)) \
         .groupByKey(numPartitions=40) \
         .map(lambda (user, movie_list): (user, [m for m in movie_list]))
 
@@ -145,19 +145,6 @@ def calc_hit(recommend_dict, test_movie_list, N):
         if movie in test_movie_list:
             hit += 1
     return hit, N, len(test_movie_list)
-
-
-class UserCF:
-    def __init__(self):
-        self.train_set = {}
-        self.test_set = {}
-
-        self.n_sim_user = 20
-        self.n_rec_movie = 10
-
-        self.user_sim_mat = {}
-        self.movie_popular = {}
-        self.movie_count = 0
 
 
 if __name__ == '__main__':
