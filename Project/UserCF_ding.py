@@ -29,7 +29,7 @@ class UserCF:
     def read_data(self, file_path):
         raw_data = pd.read_csv(file_path,
                                dtype={'userId': str, 'movieId': str})
-        print("Read data finished!\n", file=self.log_file)
+        print("Read data finished!\n")
         train_set, test_set = train_test_split(raw_data, test_size=0.25)
 
         for i in range(len(train_set)):
@@ -56,7 +56,7 @@ class UserCF:
         # build inverse table for item-users
         # key=movieID, value=list of userIDs who have seen this movie
         # print('building movie-users inverse table...', file=sys.stderr)
-        print('building movie-users inverse table...', file=self.log_file)
+        print('building movie-users inverse table...')
         movie2users = {}
 
         for user, movies in self.train_set.items():
@@ -69,15 +69,15 @@ class UserCF:
                 if movie not in self.movie_popular:
                     self.movie_popular[movie] = 0
                 self.movie_popular[movie] += 1
-        print('build movie-users inverse table succ', file=self.log_file)
+        print('build movie-users inverse table succ')
 
         # save the total movie number, which will be used in evaluation
         self.movie_count = len(movie2users)
-        print('total movie number = %d' % self.movie_count, file=self.log_file)
+        print('total movie number = %d' % self.movie_count)
 
         # count co-rated items between users
         usersim_mat = self.user_sim_mat
-        print('building user co-rated movies matrix...', file=self.log_file)
+        print('building user co-rated movies matrix...')
 
         for movie, users in movie2users.items():
             for u in users:
@@ -86,10 +86,10 @@ class UserCF:
                     if u == v:
                         continue
                     usersim_mat[u][v] += 1
-        print('build user co-rated movies matrix succ', file=self.log_file)
+        print('build user co-rated movies matrix succ')
 
         # calculate similarity matrix
-        print('calculating user similarity matrix...', file=self.log_file)
+        print('calculating user similarity matrix...')
         simfactor_count = 0
         PRINT_STEP = 2000000
 
@@ -98,12 +98,12 @@ class UserCF:
                 usersim_mat[u][v] = count / np.sqrt(len(self.train_set[u]) * len(self.train_set[v]))
                 simfactor_count += 1
                 if simfactor_count % PRINT_STEP == 0:
-                    print('calculating user similarity factor(%d)' % simfactor_count, file=self.log_file)
+                    print('calculating user similarity factor(%d)' % simfactor_count)
 
         print('calculate user similarity matrix(similarity factor) successful',
               file=self.log_file)
         print('Total similarity factor number = %d' %
-              simfactor_count, file=self.log_file)
+              simfactor_count)
 
     def recommend(self, user):
         """ Find K similar users and recommend N movies. """
@@ -127,7 +127,7 @@ class UserCF:
         """
         print evaluation result: precision, recall, coverage and popularity
         """
-        print('Evaluation start...', file=self.log_file)
+        print('Evaluation start...')
 
         N = self.n_rec_movie
         #  variables for precision and recall
@@ -141,7 +141,7 @@ class UserCF:
 
         for i, user in enumerate(self.train_set):
             if i % 500 == 0:
-                print('recommended for %d users' % i, file=self.log_file)
+                print('recommended for %d users' % i)
             test_movies = self.test_set.get(user, {})
             rec_movies = self.recommend(user)
             for movie, _ in rec_movies:
@@ -158,20 +158,24 @@ class UserCF:
         popularity = popular_sum / (1.0 * rec_count)
 
         print('precision = %.4f\t recall = %.4f\t coverage = %.4f\t popularity = %.4f' %
-              (precision, recall, coverage, popularity), file=self.log_file)
+              (precision, recall, coverage, popularity))
 
 
 if __name__ == '__main__':
+    start_time = time.time()
+
     parser = argparse.ArgumentParser(description='UserCF Standalone',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--n_sim_movie')
     parser.add_argument('--n_rec_movie')
     args = parser.parse_args()
 
-    start_time = time.time()
     data_path = './data/ratings_100k.csv'
     userCF = UserCF()
     userCF.read_data(data_path)
     userCF.calc_user_sim()
     userCF.evaluate()
     userCF.log_file.close()
+
+    end_time = time.time()
+    print("Time elapse: %.2f s\n" % (end_time - start_time))

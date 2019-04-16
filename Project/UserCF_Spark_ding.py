@@ -1,12 +1,14 @@
 # coding=utf-8
+"""
+Created on 2019-04-16
+
+@author: Haoran Ding
+"""
 import argparse
 import time
 from math import sqrt
-from operator import itemgetter, add
-from collections import defaultdict
+from operator import add
 
-# import numpy as np
-# import pandas as pd
 from pyspark import SparkContext
 
 N_SIM_USER = 20
@@ -17,7 +19,7 @@ def read_data(file_path, sparkContext):
     """
     :param file_path:
     :param sparkContext:
-    :return: RDD(userID, movieID, rating)
+    :return: RDD(userID, movieID)
     """
     data_rdd = sparkContext.textFile(file_path, use_unicode=False) \
         .map(lambda line: line.strip()) \
@@ -41,7 +43,7 @@ def calc_user_sim(train_rdd):
 
     train_movie_count = movie2users.count()
 
-    # C[u][v]
+    # 用户共现矩阵 C[u][v]
     user_co_related_matrix = movie2users \
         .map(lambda (movie, user_list): get_user_sim_matrix(movie, user_list)) \
         .flatMap(lambda uv_list: uv_list) \
@@ -136,7 +138,9 @@ def evaluate(train_rdd, test_rdd, user_sim_matrix_rdd):
 
     precision = _hit / (1.0 * _rec_count)
     recall = _hit / (1.0 * _test_count)
-    print('precision=%.4f, recall=%.4f' % (precision, recall))
+    print 'precision=%.4f, recall=%.4f' % (precision, recall)
+
+    return
 
 
 def calc_hit(recommend_dict, test_movie_list, N):
@@ -148,6 +152,8 @@ def calc_hit(recommend_dict, test_movie_list, N):
 
 
 if __name__ == '__main__':
+    start_time = time.time()
+
     parser = argparse.ArgumentParser(description='UserCF Spark',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--n_sim_movie')
@@ -155,9 +161,22 @@ if __name__ == '__main__':
     parser.add_argument('--input', default=None, help='Input Data')
     parser.add_argument('--master', default="local[20]", help="Spark Master")
 
+    verbosity_group = parser.add_mutually_exclusive_group(required=False)
+    verbosity_group.add_argument('--verbose', dest='verbose', action='store_true')
+    verbosity_group.add_argument('--silent', dest='verbose', action='store_false')
+    parser.set_defaults(verbose=False)
+
     args = parser.parse_args()
-    sc = SparkContext(args.master, 'UserCF Spark')
+    sc = SparkContext(args.master, 'UserCF Spark Version')
+
+    if not args.verbose:
+        sc.setLogLevel("ERROR")
 
     train_set, test_set = read_data(file_path=args.input, sparkContext=sc)
     user_similarity_matrix = calc_user_sim(train_rdd=train_set)
     evaluate(train_set, test_set, user_similarity_matrix)
+
+    end_time = time.time()
+    print "Time elapse: %.2f s\n" % (end_time - start_time)
+
+    # python UserCF_Spark_ding.py --input ./data/ratings_100k_spark.csv

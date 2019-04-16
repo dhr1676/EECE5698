@@ -1,3 +1,4 @@
+# coding=utf-8
 import argparse
 import time
 from operator import itemgetter
@@ -132,13 +133,14 @@ class ItemCF:
 
 
 if __name__ == '__main__':
+    start_time = time.time()
+
     parser = argparse.ArgumentParser(description='ItemCF',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--n_sim_movie')
     parser.add_argument('--n_rec_movie')
     args = parser.parse_args()
 
-    start_time = time.time()
     data_path = './data/ratings_100k.csv'
     if args.n_sim_movie and args.n_rec_movie:
         itemCF = ItemCF(n_sim_movie=args.n_sim_movie,
