@@ -1,6 +1,7 @@
 # coding=utf-8
 import argparse
 import time
+from math import sqrt, log
 from operator import itemgetter
 
 import numpy as np
@@ -21,9 +22,8 @@ class ItemCF:
         self.movie_count = 0
 
     def read_data(self, file_path):
-        raw_data = pd.read_csv(file_path,
-                               dtype={'userId': str, 'movieId': str})
-        print("Read data finished!\n")
+        raw_data = pd.read_csv(file_path, dtype={'userId': str, 'movieId': str})
+        print("Read data finished!")
         train_set, test_set = train_test_split(raw_data, test_size=0.25)
 
         for i in range(len(train_set)):
@@ -115,6 +115,8 @@ class ItemCF:
         test_count = 0
         # 覆盖率
         all_rec_movies = set()
+        # variables for popularity
+        popular_sum = 0
 
         for i, user in enumerate(self.train_set):
             test_movies = self.test_set.get(user, {})  # 获得test中的dict，如果没有user这个key，返回一个空dict
@@ -123,13 +125,16 @@ class ItemCF:
                 if movie in test_movies:
                     hit += 1
                 all_rec_movies.add(movie)
+                popular_sum += np.log(1 + self.movie_popular[movie])
             rec_count += N
             test_count += len(test_movies)
 
         precision = hit / (1.0 * rec_count)
         recall = hit / (1.0 * test_count)
         coverage = len(all_rec_movies) / (1.0 * self.movie_count)
-        print('precision = %.4f\t recall = %.4f \t coverage = %.4f' % (precision, recall, coverage))
+        popularity = popular_sum / (1.0 * rec_count)
+        print('precision = %.4f, recall = %.4f, coverage = %.4f, popularity=%.4f'
+              % (precision, recall, coverage, popularity))
 
 
 if __name__ == '__main__':
@@ -139,9 +144,12 @@ if __name__ == '__main__':
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--n_sim_movie')
     parser.add_argument('--n_rec_movie')
+    parser.add_argument('--input')
     args = parser.parse_args()
 
-    data_path = './data/ratings_100k.csv'
+    # data_path = './data/ratings_100w_old.csv'
+    # data_path = './data/ratings_50k.csv'
+    data_path = args.input
     if args.n_sim_movie and args.n_rec_movie:
         itemCF = ItemCF(n_sim_movie=args.n_sim_movie,
                         n_rec_movie=args.n_rec_movie)

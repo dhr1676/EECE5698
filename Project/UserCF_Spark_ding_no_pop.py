@@ -39,12 +39,6 @@ def calc_user_sim(train_rdd):
         .groupByKey(numPartitions=40) \
         .map(lambda (movie, user_list): (movie, [u for u in user_list]))
 
-    # 记录一下popularity
-    movie_popular = movie2users \
-        .map(lambda (movie, user_list): (movie, len(user_list)))
-
-    all_movie_count = movie2users.count()
-
     # 用户共现矩阵 C[u][v]
     user_co_related_matrix = movie2users \
         .map(lambda (movie, user_list): get_user_sim_matrix(movie, user_list)) \
@@ -63,7 +57,7 @@ def calc_user_sim(train_rdd):
     user_sim_matrix = user_co_related_matrix \
         .map(lambda ((u, v), count): ((u, v), count / sqrt(view_num_map[u] * view_num_map[v])))
     print 'calculate user similarity matrix(similarity factor) successful'
-    return user_sim_matrix, movie_popular, all_movie_count
+    return user_sim_matrix
 
 
 def get_user_sim_matrix(movie, user_list):
@@ -94,14 +88,11 @@ def recommend(user, watched_movies, _user_sim_matrix_map, other_user_history):
     return sorted(rank.items(), key=lambda x: x[1], reverse=True)[:N]
 
 
-def evaluate(train_rdd, test_rdd, user_sim_matrix_rdd, all_movie_count, movie_popular):
+def evaluate(train_rdd, test_rdd, user_sim_matrix_rdd):
     N = N_REC_MOVIE
 
     # variables for coverage
     all_rec_movies = set()
-
-    # dict for popularity
-    movie_popular_dict = movie_popular.collectAsMap()
 
     test_user_movie = test_rdd \
         .groupByKey(numPartitions=40) \
@@ -126,36 +117,31 @@ def evaluate(train_rdd, test_rdd, user_sim_matrix_rdd, all_movie_count, movie_po
              (user, recommend(user, movie_list, user_sim_matrix_map[user], train_user_history))) \
         .map(lambda (user, recommend_dict): (user, calc_hit(recommend_dict,
                                                             test_u_m_map.get(user, {}),
-                                                            N,
-                                                            movie_popular_dict))) \
-        .map(lambda (user, (hit, rec_count, test_count, popular_sum)):
-             (hit, rec_count, test_count, popular_sum))
+                                                            N))) \
+        .map(lambda (user, (hit, rec_count, test_count)):
+             (hit, rec_count, test_count))
 
-    _hit, _rec_count, _test_count, _popular_sum = 0, 0, 0, 0
+    _hit, _rec_count, _test_count = 0, 0, 0
 
     ans = train_user_list.collect()
     for i in ans:
         _hit += i[0]
         _rec_count += i[1]
         _test_count += i[2]
-        _popular_sum += i[3]
 
     precision = _hit / (1.0 * _rec_count)
     recall = _hit / (1.0 * _test_count)
-    popularity = _popular_sum / (1.0 * _rec_count)
-    print 'precision=%.4f, recall=%.4f, popularity = %.4f' % (precision, recall, popularity)
+    print 'precision=%.4f, recall=%.4f' % (precision, recall)
 
     return
 
 
-def calc_hit(recommend_dict, test_movie_list, N, movie_popular_dict):
+def calc_hit(recommend_dict, test_movie_list, N):
     hit = 0
-    popular_sum = 0
     for movie, score in recommend_dict:
         if movie in test_movie_list:
             hit += 1
-        popular_sum += log(1 + movie_popular_dict[movie])
-    return hit, N, len(test_movie_list), popular_sum
+    return hit, N, len(test_movie_list)
 
 
 if __name__ == '__main__':
@@ -180,8 +166,8 @@ if __name__ == '__main__':
         sc.setLogLevel("ERROR")
 
     train_set, test_set = read_data(file_path=args.input, sparkContext=sc)
-    user_similarity_matrix, movie_popular_count, movie_total_count = calc_user_sim(train_rdd=train_set)
-    evaluate(train_set, test_set, user_similarity_matrix, movie_total_count, movie_popular_count)
+    user_similarity_matrix = calc_user_sim(train_rdd=train_set)
+    evaluate(train_set, test_set, user_similarity_matrix)
 
     end_time = time.time()
     print "Time elapse: %.2f s\n" % (end_time - start_time)

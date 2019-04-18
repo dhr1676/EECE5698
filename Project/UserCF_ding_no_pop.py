@@ -18,11 +18,10 @@ class UserCF:
         self.num_movies = 1682
         self.num_k = 20
 
-        self.n_sim_user = 35
+        self.n_sim_user = 20
         self.n_rec_movie = 10
 
         self.user_sim_mat = {}
-        self.movie_popular = {}
         self.movie_count = 0
 
         self.log_file = open(r'./log_file.txt', 'w')
@@ -66,10 +65,6 @@ class UserCF:
                 if movie not in movie2users:
                     movie2users[movie] = set()
                 movie2users[movie].add(user)
-                # count item popularity at the same time
-                if movie not in self.movie_popular:
-                    self.movie_popular[movie] = 0
-                self.movie_popular[movie] += 1
         print('build movie-users inverse table succ')
 
         # save the total movie number, which will be used in evaluation
@@ -136,8 +131,6 @@ class UserCF:
         test_count = 0
         # variables for coverage
         all_rec_movies = set()
-        # # variables for popularity
-        # popular_sum = 0
 
         for i, user in enumerate(self.train_set):
             if i % 500 == 0:
@@ -148,17 +141,13 @@ class UserCF:
                 if movie in test_movies:
                     hit += 1
                 all_rec_movies.add(movie)
-                # popular_sum += np.log(1 + self.movie_popular[movie])
             rec_count += N
             test_count += len(test_movies)
 
         precision = hit / (1.0 * rec_count)
         recall = hit / (1.0 * test_count)
         coverage = len(all_rec_movies) / (1.0 * self.movie_count)
-        # popularity = popular_sum / (1.0 * rec_count)
 
-        # print('precision = %.4f\t recall = %.4f\t coverage = %.4f\t popularity = %.4f' %
-        #       (precision, recall, coverage, popularity))
         print('precision = %.4f\t recall = %.4f\t coverage = %.4f\t' %
               (precision, recall, coverage))
 
@@ -170,10 +159,12 @@ if __name__ == '__main__':
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--n_sim_movie')
     parser.add_argument('--n_rec_movie')
+    parser.add_argument('--input')
     args = parser.parse_args()
 
     # data_path = './data/ratings_100w_old.csv'
-    data_path = './data/ratings_100k.csv'
+    # data_path = './data/ratings_50k.csv'
+    data_path = args.input
     userCF = UserCF()
     userCF.read_data(data_path)
     userCF.calc_user_sim()
