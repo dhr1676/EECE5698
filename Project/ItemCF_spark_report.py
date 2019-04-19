@@ -17,6 +17,7 @@ N_REC_MOVIE = 10
 
 def read_data(file_path, sparkContext):
     """
+    Read data from file
     :param file_path:
     :param sparkContext:
     :return: RDD(userID, movieID, rating)
@@ -35,9 +36,7 @@ def calc_item_sim(train_rdd):
         .map(lambda (user, movie, rating): (movie, 1)) \
         .reduceByKey(add, numPartitions=40)
 
-    movie_count = movie_popular.count()
-
-    # 物品共现矩阵 C[i][j]
+    # Item co-rated matrix C[i][j]
     item_co_related_matrix = train_rdd \
         .map(lambda (user, movie, rating): (user, movie)) \
         .groupByKey(numPartitions=40) \
@@ -51,7 +50,7 @@ def calc_item_sim(train_rdd):
     view_num_map = movie_popular.collectAsMap()
     b_view_num_map = sc.broadcast(view_num_map)
 
-    # 计算得到物品相似度矩阵 W[i][j]: RDD((i, j), score)
+    # Get the item similarity matrix W[i][j]: RDD((i, j), score)
     item_sim_matrix = item_co_related_matrix \
         .map(lambda ((i, j), count): ((i, j), count / sqrt(view_num_map[i] * view_num_map[j])))
     # .map(lambda ((i, j), count): ((i, j), count / sqrt(b_view_num_map.value([i]) * b_view_num_map.value([j]))))
@@ -109,8 +108,6 @@ def evaluate(train_rdd, test_rdd, item_sim_matrix_rdd):
         .map(lambda (i, j_set_list): (i, {j_set[0]: j_set[1] for j_set in j_set_list})) \
         .collectAsMap()
     # { movieID: {m1: score, m2: score}, ...}
-
-    b_item_sim_matrix_map = sc.broadcast(item_sim_matrix_map)
 
     train_user_movie = train_rdd \
         .map(lambda (user, movie, rating): (user, (movie, rating))) \

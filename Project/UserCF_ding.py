@@ -70,7 +70,7 @@ class UserCF:
                 if movie not in self.movie_popular:
                     self.movie_popular[movie] = 0
                 self.movie_popular[movie] += 1
-        print('build movie-users inverse table succ')
+        print('build movie-users inverse table successful')
 
         # save the total movie number, which will be used in evaluation
         self.movie_count = len(movie2users)
@@ -173,7 +173,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # data_path = './data/ratings_100w_old.csv'
-    data_path = './data/ratings_100k.csv'
+    data_path = './data/ratings_75k.csv'
     userCF = UserCF()
     userCF.read_data(data_path)
     userCF.calc_user_sim()
